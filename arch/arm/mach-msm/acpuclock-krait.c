@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -21,6 +21,7 @@
 #include <linux/errno.h>
 #include <linux/cpufreq.h>
 #include <linux/cpu.h>
+#include <linux/console.h>
 #include <linux/regulator/consumer.h>
 
 #include <asm/mach-types.h>
@@ -42,7 +43,6 @@
 #ifdef CONFIG_LGE_PM_LOW_BATT_CHG
 #include <mach/board_lge.h>
 #endif
-
 /* MUX source selects. */
 #define PRI_SRC_SEL_SEC_SRC	0
 #define PRI_SRC_SEL_HFPLL	1
@@ -57,6 +57,9 @@ int g_pvs_bin;
 		|| defined(CONFIG_MACH_APQ8064_GVDCM) || defined(CONFIG_MACH_APQ8064_GV_KR) || defined(CONFIG_MACH_APQ8064_GKGLOBAL)
 int limit_cpufreq = 0;
 #endif
+
+struct acpu_level orig_drv[FREQ_STEPS];
+extern void reset_num_cpu_freqs(void);
 
 static DEFINE_MUTEX(driver_lock);
 static DEFINE_SPINLOCK(l2_lock);
@@ -459,12 +462,6 @@ static int acpuclk_krait_set_rate(int cpu, unsigned long rate,
 	unsigned long flags;
 	int rc = 0;
 
-#if defined(CONFIG_MACH_APQ8064_GK_KR) || defined(CONFIG_MACH_APQ8064_GKATT)\
-		|| defined(CONFIG_MACH_APQ8064_GVDCM) || defined(CONFIG_MACH_APQ8064_GV_KR) || defined(CONFIG_MACH_APQ8064_GKGLOBAL)
-	if(limit_cpufreq) {
-		if(rate > 1242000) rate = 1242000;	
-	}
-#endif
 	if (cpu > num_possible_cpus())
 		return -EINVAL;
 
@@ -874,8 +871,8 @@ static void __init bus_init(const struct l2_level *l2_level)
 }
 
 #ifdef CONFIG_CPU_FREQ_MSM
-static struct cpufreq_frequency_table freq_table[NR_CPUS][35];
-
+static struct cpufreq_frequency_table freq_table[NR_CPUS][FREQ_TABLE_SIZE];
+extern int console_batt_stat;
 static void __init cpufreq_table_init(void)
 {
 	int cpu;
@@ -912,8 +909,11 @@ static void __init cpufreq_table_init(void) {}
 static void __init dcvs_freq_init(void)
 {
 	int i;
+	reset_num_cpu_freqs();
+	
 
 	for (i = 0; drv.acpu_freq_tbl[i].speed.khz != 0; i++)
+		orig_drv[i].vdd_core = drv.acpu_freq_tbl[i].vdd_core;
 		if (drv.acpu_freq_tbl[i].use_for_scaling)
 			msm_dcvs_register_cpu_freq(
 				drv.acpu_freq_tbl[i].speed.khz,
@@ -977,8 +977,8 @@ static const int krait_needs_vmin(void)
 static void krait_apply_vmin(struct acpu_level *tbl)
 {
 	for (; tbl->speed.khz != 0; tbl++) {
-		if (tbl->vdd_core < 1150000)
-			tbl->vdd_core = 1150000;
+		if (tbl->vdd_core < MIN_VDD_SC)
+			tbl->vdd_core = MIN_VDD_SC;
 		tbl->avsdscr_setting = 0;
 	}
 }
@@ -1080,6 +1080,73 @@ static void __init drv_data_init(struct device *dev,
 
 	acpuclk_krait_data.power_collapse_khz = params->stby_khz;
 	acpuclk_krait_data.wait_for_irq_khz = params->stby_khz;
+}
+
+void acpuclk_UV_mV_table(int cnt, unsigned int vdd_uv[]) {
+
+	int i;
+	int j=0;
+
+	reset_num_cpu_freqs();
+	if (vdd_uv[0] < vdd_uv[cnt-1])
+	{
+		for (i = 0; i < cnt; i++) {
+		    if ((vdd_uv[i]*1000) >= MIN_VDD_SC && (vdd_uv[i]*1000) <= MAX_VDD_SC)
+			drv.acpu_freq_tbl[i].vdd_core = vdd_uv[i]*1000;
+			msm_dcvs_register_cpu_freq(drv.acpu_freq_tbl[i].speed.khz, drv.acpu_freq_tbl[i].vdd_core / 1000);
+		}
+	}
+	else
+	{
+		j = cnt-1;
+		for (i = 0; i < cnt; i++) {
+		    if ((vdd_uv[j]*1000) >= MIN_VDD_SC && (vdd_uv[j]*1000) <= MAX_VDD_SC)
+		    {
+			drv.acpu_freq_tbl[i].vdd_core = vdd_uv[j]*1000;
+			msm_dcvs_register_cpu_freq(drv.acpu_freq_tbl[i].speed.khz, drv.acpu_freq_tbl[i].vdd_core / 1000);
+		    }
+		    j--;
+		}
+	}
+}
+
+ssize_t acpuclk_get_vdd_levels_str(char *buf, int isApp) {
+
+	int i, len = 0;
+
+	if (buf) {
+		if (isApp == 0)
+		{
+			//for (i = 0; acpu_freq_tbl[i+1].speed.khz; i++)
+			for (i = 0; i < isApp-1; i++)
+				len += sprintf(buf + len, "%lu: %d\n", drv.acpu_freq_tbl[i].speed.khz, drv.acpu_freq_tbl[i].vdd_core );
+		}
+		else
+		{
+			for (i = isApp-1; i >= 0; i--)
+				len += sprintf(buf + len, "%lumhz: %d mV\n", drv.acpu_freq_tbl[i].speed.khz/1000, drv.acpu_freq_tbl[i].vdd_core/1000);
+		}
+	}
+	return len;
+}
+
+ssize_t acpuclk_get_vdd_levels_str_stock(char *buf, int isApp) {
+	int i, len = 0;
+
+	if (buf) {
+		if (isApp == 0)
+		{
+			//for (i = 0; acpu_freq_tbl[i+1].speed.khz; i++)
+			for (i = 0; i < isApp-1; i++)
+				len += sprintf(buf + len, "%lu: %d\n", drv.acpu_freq_tbl[i].speed.khz, orig_drv[i].vdd_core );
+		}
+		else
+		{
+			for (i = isApp-1; i >= 0; i--)
+				len += sprintf(buf + len, "%lumhz: %d mV\n", drv.acpu_freq_tbl[i].speed.khz/1000, orig_drv[i].vdd_core/1000);
+		}
+	}
+	return len;
 }
 
 static void __init hw_init(void)
