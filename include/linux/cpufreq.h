@@ -21,14 +21,14 @@
 #include <linux/cpumask.h>
 #include <asm/div64.h>
 
-#define CPUFREQ_NAME_LEN 17
+#define CPUFREQ_NAME_LEN 16
 
 extern int GLOBALKT_MIN_FREQ_LIMIT;
 extern int GLOBALKT_MAX_FREQ_LIMIT;
 
-#define FREQ_TABLE_SIZE		45
+#define FREQ_TABLE_SIZE		33
 #define FREQ_TABLE_SIZE_OFFSET	8
-#define FREQ_STEPS		26
+#define FREQ_STEPS		14
 
 #define MAX_VDD_SC		1500000 /* uV */
 #define MIN_VDD_SC		700000 /* uV */
