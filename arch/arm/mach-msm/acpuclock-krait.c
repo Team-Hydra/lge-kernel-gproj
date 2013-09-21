@@ -505,6 +505,12 @@ static int acpuclk_krait_set_rate(int cpu, unsigned long rate,
 	bool skip_regulators;
 	int rc = 0;
 
+#if defined(CONFIG_MACH_APQ8064_GK_KR) || defined(CONFIG_MACH_APQ8064_GKATT)\
+		|| defined(CONFIG_MACH_APQ8064_GVDCM) || defined(CONFIG_MACH_APQ8064_GV_KR) || defined(CONFIG_MACH_APQ8064_GKGLOBAL)
+	if(limit_cpufreq) {
+		if(rate > 1242000) rate = 1242000;	
+	}
+#endif
 	if (cpu > num_possible_cpus())
 		return -EINVAL;
 
