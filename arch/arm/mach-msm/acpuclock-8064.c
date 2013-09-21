@@ -938,17 +938,6 @@ static struct attribute_group acpuclock8064_attr_group = {
 
 static int __init acpuclk_8064_probe(struct platform_device *pdev)
 {
-	if (cpu_is_apq8064ab() ||
-		SOCINFO_VERSION_MAJOR(socinfo_get_version()) == 2) {
-		acpuclk_8064_params.hfpll_data->low_vdd_l_max = 37;
-		acpuclk_8064_params.hfpll_data->nom_vdd_l_max = 74;
-	}
-
-	return acpuclk_krait_init(&pdev->dev, &acpuclk_8064_params);
-}
-
-static int __init acpuclk_8064_probe(struct platform_device *pdev)
-{
 #ifdef CONFIG_LGE_PM
 	/* Krait freq table set for factory boot mode */
 	if (lge_get_factory_boot()) 
@@ -984,6 +973,15 @@ static int __init acpuclk_8064_probe(struct platform_device *pdev)
 #endif
 	}
 #endif //CONFIG_LGE_PM
+
+	if (cpu_is_apq8064ab() ||
+		SOCINFO_VERSION_MAJOR(socinfo_get_version()) == 2) {
+		acpuclk_8064_params.hfpll_data->low_vdd_l_max = 37;
+		acpuclk_8064_params.hfpll_data->nom_vdd_l_max = 74;
+	}
+
+	return acpuclk_krait_init(&pdev->dev, &acpuclk_8064_params);
+}
 
 static struct platform_driver acpuclk_8064_driver = {
 	.driver = {
