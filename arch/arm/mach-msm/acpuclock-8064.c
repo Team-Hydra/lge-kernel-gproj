@@ -111,6 +111,7 @@ static struct msm_bus_paths bw_level_tbl[] __initdata = {
 	[3] = BW_MBPS(2128), /* At least 266 MHz on bus. */
 	[4] = BW_MBPS(3200), /* At least 400 MHz on bus. */
 	[5] = BW_MBPS(4264), /* At least 533 MHz on bus. */
+	[6] = BW_MBPS(4600), /* At least 600 MHz on bus. */
 };
 
 static struct msm_bus_scale_pdata bus_scale_data __initdata = {
@@ -137,6 +138,8 @@ static struct l2_level l2_freq_tbl[] __initdata = {
 	[13] = { { 1080000, HFPLL, 1, 0x28 }, 1150000, 1150000, 5 },
 	[14] = { { 1134000, HFPLL, 1, 0x2A }, 1150000, 1150000, 5 },
 	[15] = { { 1188000, HFPLL, 1, 0x2C }, 1150000, 1150000, 5 },
+	[16] = { { 1242000, HFPLL, 1, 0x2E }, MAX_VDD_MEM_DIG, MAX_VDD_MEM_DIG, 6 },
+	[17] = { { 1296000, HFPLL, 1, 0x30 }, MAX_VDD_MEM_DIG, MAX_VDD_MEM_DIG, 6 },
 	{ }
 };
 
