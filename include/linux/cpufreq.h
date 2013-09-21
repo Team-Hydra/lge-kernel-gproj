@@ -21,8 +21,22 @@
 #include <linux/cpumask.h>
 #include <asm/div64.h>
 
-#define CPUFREQ_NAME_LEN 16
+#define CPUFREQ_NAME_LEN 17
 
+extern int GLOBALKT_MIN_FREQ_LIMIT;
+extern int GLOBALKT_MAX_FREQ_LIMIT;
+
+#define FREQ_TABLE_SIZE		45
+#define FREQ_TABLE_SIZE_OFFSET	8
+#define FREQ_STEPS		26
+
+#define MAX_VDD_SC		1500000 /* uV */
+#define MIN_VDD_SC		700000 /* uV */
+#define MAX_VDD_MEM_DIG		1250000 /* uV */
+
+#define USER_MIN_START	1
+#define USER_MAX_START	2
+extern unsigned int kthermal_limit;
 
 /*********************************************************************
  *                     CPUFREQ NOTIFIER INTERFACE                    *
@@ -113,6 +127,7 @@ struct cpufreq_policy {
 	struct kobject		kobj;
 	struct completion	kobj_unregister;
 };
+extern struct cpufreq_policy trmlpolicy[10];
 
 #define CPUFREQ_ADJUST		(0)
 #define CPUFREQ_INCOMPATIBLE	(1)
@@ -345,6 +360,52 @@ static inline unsigned int cpufreq_quick_get_max(unsigned int cpu)
 }
 #endif
 
+#ifdef CONFIG_SEC_DVFS
+enum {
+	BOOT_CPU = 0,
+};
+
+int get_max_freq(void);
+int get_min_freq(void);
+
+#define MAX_FREQ_LIMIT		get_max_freq() /* 1512000 */
+#define MIN_FREQ_LIMIT		get_min_freq() /* 384000 */
+
+#define MIN_TOUCH_LIMIT		1674000
+#define MIN_TOUCH_LIMIT_SECOND	1350000
+
+#ifdef CONFIG_TARGET_SERIES_DALI
+#define MAX_UNICPU_LIMIT	1188000
+#else
+#define MAX_UNICPU_LIMIT	1242000
+#endif
+
+#define UPDATE_NOW_BITS		0xFF
+
+enum {
+	DVFS_NO_ID			= 0,
+
+	/* need to update now */
+	DVFS_TOUCH_ID			= 0x00000001,
+	DVFS_APPS_MIN_ID		= 0x00000002,
+	DVFS_APPS_MAX_ID		= 0x00000004,
+	DVFS_UNICPU_ID			= 0x00000008,
+
+	/* DO NOT UPDATE NOW */
+	DVFS_THERMALD_ID		= 0x00000100,
+
+	DVFS_MAX_ID
+};
+
+
+int set_freq_limit(unsigned long id, unsigned int freq);
+
+unsigned int get_min_lock(void);
+unsigned int get_max_lock(void);
+void set_min_lock(int freq);
+void set_max_lock(int freq);
+
+#endif
 
 /*********************************************************************
  *                       CPUFREQ DEFAULT GOVERNOR                    *
@@ -375,6 +436,9 @@ extern struct cpufreq_governor cpufreq_gov_conservative;
 #elif defined(CONFIG_CPU_FREQ_DEFAULT_GOV_INTERACTIVE)
 extern struct cpufreq_governor cpufreq_gov_interactive;
 #define CPUFREQ_DEFAULT_GOVERNOR	(&cpufreq_gov_interactive)
+#elif defined(CONFIG_CPU_FREQ_DEFAULT_GOV_INTELLIDEMAND)
+extern struct cpufreq_governor cpufreq_gov_intellidemand;
+#define CPUFREQ_DEFAULT_GOVERNOR	(&cpufreq_gov_intellidemand)
 #endif
 
 
