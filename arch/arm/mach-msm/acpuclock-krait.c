@@ -234,7 +234,8 @@ static void set_bus_bw(unsigned int bw)
 }
 
 /* Set the CPU or L2 clock speed. */
-static void set_speed(struct scalable *sc, const struct core_speed *tgt_s)
+static void set_speed(struct scalable *sc, const struct core_speed *tgt_s,
+	bool skip_regulators)
 {
 	const struct core_speed *strt_s = sc->cur_speed;
 
@@ -257,10 +258,10 @@ static void set_speed(struct scalable *sc, const struct core_speed *tgt_s)
 		set_pri_clk_src(sc, tgt_s->pri_src_sel);
 	} else if (strt_s->src == HFPLL && tgt_s->src != HFPLL) {
 		set_pri_clk_src(sc, tgt_s->pri_src_sel);
-		hfpll_disable(sc, false);
+		hfpll_disable(sc, skip_regulators);
 	} else if (strt_s->src != HFPLL && tgt_s->src == HFPLL) {
 		hfpll_set_rate(sc, tgt_s);
-		hfpll_enable(sc, false);
+		hfpll_enable(sc, skip_regulators);
 		set_pri_clk_src(sc, tgt_s->pri_src_sel);
 	}
 
@@ -458,8 +459,9 @@ static int acpuclk_krait_set_rate(int cpu, unsigned long rate,
 	const struct core_speed *strt_acpu_s, *tgt_acpu_s;
 	const struct acpu_level *tgt;
 	int tgt_l2_l;
+	enum src_id prev_l2_src = NUM_SRC_ID;
 	struct vdd_data vdd_data;
-	unsigned long flags;
+	bool skip_regulators;
 	int rc = 0;
 
 	if (cpu > num_possible_cpus())
@@ -503,13 +505,14 @@ static int acpuclk_krait_set_rate(int cpu, unsigned long rate,
 		rc = increase_vdd(cpu, &vdd_data, reason);
 		if (rc)
 			goto out;
+
 	}
 
 	dev_dbg(drv.dev, "Switching from ACPU%d rate %lu KHz -> %lu KHz\n",
 		cpu, strt_acpu_s->khz, tgt_acpu_s->khz);
 
 	/* Set the new CPU speed. */
-	set_speed(&drv.scalable[cpu], tgt_acpu_s);
+	set_speed(&drv.scalable[cpu], tgt_acpu_s, skip_regulators);
 
 	/*
 	 * Update the L2 vote and apply the rate change. A spinlock is
@@ -553,7 +556,7 @@ static struct acpuclk_data acpuclk_krait_data = {
 };
 
 /* Initialize a HFPLL at a given rate and enable it. */
-static void __init hfpll_init(struct scalable *sc,
+static void __cpuinit hfpll_init(struct scalable *sc,
 			      const struct core_speed *tgt_s)
 {
 	dev_dbg(drv.dev, "Initializing HFPLL%d\n", sc - drv.scalable);
@@ -824,10 +827,10 @@ static int __cpuinit per_cpu_init(int cpu)
 			ret = -ENODEV;
 			goto err_table;
 		}
-		dev_info(drv.dev, "CPU%d is running at an unknown rate. Defaulting to %lu KHz.\n",
+		dev_dbg(drv.dev, "CPU%d is running at an unknown rate. Defaulting to %lu KHz.\n",
 			cpu, acpu_level->speed.khz);
 	} else {
-		dev_info(drv.dev, "CPU%d is running at %lu KHz\n", cpu,
+		dev_dbg(drv.dev, "CPU%d is running at %lu KHz\n", cpu,
 			acpu_level->speed.khz);
 	}
 
@@ -911,7 +914,6 @@ static void __init dcvs_freq_init(void)
 	int i;
 	reset_num_cpu_freqs();
 	
-
 	for (i = 0; drv.acpu_freq_tbl[i].speed.khz != 0; i++)
 		orig_drv[i].vdd_core = drv.acpu_freq_tbl[i].vdd_core;
 		if (drv.acpu_freq_tbl[i].use_for_scaling)
@@ -999,7 +1001,6 @@ static int __init get_speed_bin(u32 pte_efuse)
 	}
 
 	g_speed_bin = speed_bin;
-
 	return speed_bin;
 }
 
@@ -1019,7 +1020,6 @@ static int __init get_pvs_bin(u32 pte_efuse)
 	}
 
 	g_pvs_bin = pvs_bin;
-
 	return pvs_bin;
 }
 
@@ -1041,7 +1041,6 @@ static struct pvs_table * __init select_freq_plan(u32 pte_efuse_phys,
 	/* Select frequency tables. */
 	bin_idx = get_speed_bin(pte_efuse_val);
 	tbl_idx = get_pvs_bin(pte_efuse_val);
-
 	return &pvs_tables[bin_idx][tbl_idx];
 }
 
@@ -1164,7 +1163,6 @@ static void __init hw_init(void)
 	rc = rpm_regulator_init(l2, VREG_HFPLL_A,
 				l2->vreg[VREG_HFPLL_A].max_vdd, false);
 	BUG_ON(rc);
-
 	rc = rpm_regulator_init(l2, VREG_HFPLL_B,
 				l2->vreg[VREG_HFPLL_B].max_vdd, false);
 	BUG_ON(rc);
@@ -1185,7 +1183,6 @@ static void __init hw_init(void)
 	for_each_online_cpu(cpu) {
 		rc = per_cpu_init(cpu);
 		BUG_ON(rc);
-
 	}
 
 	bus_init(l2_level);
