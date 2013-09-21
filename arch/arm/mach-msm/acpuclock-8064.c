@@ -17,6 +17,7 @@
 #include <mach/rpm-regulator.h>
 #include <mach/msm_bus_board.h>
 #include <mach/msm_bus.h>
+#include <linux/cpufreq.h>
 
 #include "mach/socinfo.h"
 #include "acpuclock.h"
@@ -41,7 +42,7 @@ static struct hfpll_data hfpll_data __initdata = {
 	.vdd[HFPLL_VDD_NONE] =       0,
 	.vdd[HFPLL_VDD_LOW]  =  945000,
 	.vdd[HFPLL_VDD_NOM]  = 1050000,
-	.vdd[HFPLL_VDD_HIGH] = 1150000,
+	.vdd[HFPLL_VDD_HIGH] = MAX_VDD_MEM_DIG,
 };
 
 static struct scalable scalable[] __initdata = {
@@ -51,9 +52,9 @@ static struct scalable scalable[] __initdata = {
 		.aux_clk_sel = 3,
 		.sec_clk_sel = 2,
 		.l2cpmr_iaddr = 0x4501,
-		.vreg[VREG_CORE] = { "krait0", 1300000 },
-		.vreg[VREG_MEM]  = { "krait0_mem", 1150000 },
-		.vreg[VREG_DIG]  = { "krait0_dig", 1150000 },
+		.vreg[VREG_CORE] = { "krait0", MAX_VDD_SC },
+		.vreg[VREG_MEM]  = { "krait0_mem", MAX_VDD_MEM_DIG },
+		.vreg[VREG_DIG]  = { "krait0_dig", MAX_VDD_MEM_DIG },
 		.vreg[VREG_HFPLL_A] = { "krait0_hfpll", 1800000 },
 	},
 	[CPU1] = {
@@ -62,9 +63,9 @@ static struct scalable scalable[] __initdata = {
 		.aux_clk_sel = 3,
 		.sec_clk_sel = 2,
 		.l2cpmr_iaddr = 0x5501,
-		.vreg[VREG_CORE] = { "krait1", 1300000 },
-		.vreg[VREG_MEM]  = { "krait1_mem", 1150000 },
-		.vreg[VREG_DIG]  = { "krait1_dig", 1150000 },
+		.vreg[VREG_CORE] = { "krait1", MAX_VDD_SC },
+		.vreg[VREG_MEM]  = { "krait1_mem", MAX_VDD_MEM_DIG },
+		.vreg[VREG_DIG]  = { "krait1_dig", MAX_VDD_MEM_DIG },
 		.vreg[VREG_HFPLL_A] = { "krait1_hfpll", 1800000 },
 	},
 	[CPU2] = {
@@ -73,9 +74,9 @@ static struct scalable scalable[] __initdata = {
 		.aux_clk_sel = 3,
 		.sec_clk_sel = 2,
 		.l2cpmr_iaddr = 0x6501,
-		.vreg[VREG_CORE] = { "krait2", 1300000 },
-		.vreg[VREG_MEM]  = { "krait2_mem", 1150000 },
-		.vreg[VREG_DIG]  = { "krait2_dig", 1150000 },
+		.vreg[VREG_CORE] = { "krait2", MAX_VDD_SC },
+		.vreg[VREG_MEM]  = { "krait2_mem", MAX_VDD_MEM_DIG },
+		.vreg[VREG_DIG]  = { "krait2_dig", MAX_VDD_MEM_DIG },
 		.vreg[VREG_HFPLL_A] = { "krait2_hfpll", 1800000 },
 	},
 	[CPU3] = {
@@ -84,9 +85,9 @@ static struct scalable scalable[] __initdata = {
 		.aux_clk_sel = 3,
 		.sec_clk_sel = 2,
 		.l2cpmr_iaddr = 0x7501,
-		.vreg[VREG_CORE] = { "krait3", 1300000 },
-		.vreg[VREG_MEM]  = { "krait3_mem", 1150000 },
-		.vreg[VREG_DIG]  = { "krait3_dig", 1150000 },
+		.vreg[VREG_CORE] = { "krait3", MAX_VDD_SC },
+		.vreg[VREG_MEM]  = { "krait3_mem", MAX_VDD_MEM_DIG },
+		.vreg[VREG_DIG]  = { "krait3_dig", MAX_VDD_MEM_DIG },
 		.vreg[VREG_HFPLL_A] = { "krait3_hfpll", 1800000 },
 	},
 	[L2] = {
@@ -120,7 +121,7 @@ static struct msm_bus_scale_pdata bus_scale_data __initdata = {
 };
 
 static struct l2_level l2_freq_tbl[] __initdata = {
-	[0]  = { {  384000, PLL_8, 0, 0x00 },  1050000, 1050000, 1 },
+	[0]  = { {  384000, PLL_8, 0, 0x00 },  950000, 1050000, 1 },
 	[1]  = { {  432000, HFPLL, 2, 0x20 }, 1050000, 1050000, 2 },
 	[2]  = { {  486000, HFPLL, 2, 0x24 }, 1050000, 1050000, 2 },
 	[3]  = { {  540000, HFPLL, 2, 0x28 }, 1050000, 1050000, 2 },
