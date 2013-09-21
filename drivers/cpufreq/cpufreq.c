@@ -728,20 +728,6 @@ static ssize_t store_bluetooth_scaling_mhz(struct cpufreq_policy *policy,
 	return count;
 }
 
-static ssize_t show_scaling_governor_screen_off(struct cpufreq_policy *policy, char *buf)
-{
-	return scnprintf(buf, 16, "%s\n",
-				scaling_governor_screen_off_sel);
-}
-
-static ssize_t store_scaling_governor_screen_off(struct cpufreq_policy *policy,
-					const char *buf, size_t count)
-{
-	unsigned int ret = -EINVAL;
-	ret = sscanf(buf, "%15s", scaling_governor_screen_off_sel);
-	return count;
-}
-
 static ssize_t show_scaling_sched_screen_off(struct cpufreq_policy *policy, char *buf)
 {
 	return scnprintf(buf, 16, "%s\n",
@@ -1037,7 +1023,6 @@ static struct attribute *default_attrs[] = {
 	&screen_off_scaling_mhz.attr,
 	&screen_off_GPU_mhz.attr,
 	&bluetooth_scaling_mhz.attr,
-	&scaling_governor_screen_off.attr,
 	&scaling_sched_screen_off.attr,
 	&enable_auto_hotplug.attr,
 	NULL
@@ -2329,112 +2314,7 @@ int cpufreq_set_limit_defered(unsigned int flags, unsigned int value)
 	}
 	return 0;									
 }
-static void cpufreq_gov_resume(void)
-{
-	struct cpufreq_policy *policy = NULL;
-	unsigned int value;
-	unsigned int mhz_lvl = 0;
 	
-	if (!cpu_is_offline(0) && scaling_governor_screen_off_sel_prev != NULL && scaling_governor_screen_off_sel_prev[0] != '\0')
-	{
-		policy = cpufreq_cpu_get(0);
-		store_scaling_governor(policy, scaling_governor_screen_off_sel_prev, sizeof(scaling_governor_screen_off_sel_prev));
-		pr_alert("cpufreq_gov_resume_gov: %s\n", scaling_governor_screen_off_sel_prev);
-	}
-	else
-		pr_alert("cpufreq_gov_resume_gov_DENIED: %s\n", scaling_governor_screen_off_sel_prev);
-
-	if (!cpu_is_offline(0) && scaling_sched_screen_off_sel_prev != NULL && scaling_sched_screen_off_sel_prev[0] != '\0' && scaling_sched_screen_off_sel != NULL && scaling_sched_screen_off_sel[0] != '\0')
-	{
-		elevator_change_relay(scaling_sched_screen_off_sel_prev, 2);
-		pr_alert("cpufreq_gov_resume_gov_SCHED: %s\n", scaling_sched_screen_off_sel_prev);
-	}
-	else
-		pr_alert("cpufreq_gov_resume_gov_SCHED_DENIED2: %s\n", scaling_sched_screen_off_sel_prev);
-
-	if (Lscreen_off_scaling_enable == 1 && (!call_in_progress || Ldisable_som_call_in_progress == 0))
-	{
-		if (vfreq_lock == 1)
-		{
-			vfreq_lock = 0;
-			vfreq_lock_tempOFF = true;
-		}
-		value = Lscreen_off_scaling_mhz_orig;
-		mhz_lvl = get_batt_level();
-		if (mhz_lvl > 0)
-			value = mhz_lvl;
-		cpufreq_set_limit_defered(USER_MAX_START, value);
-		pr_alert("cpufreq_gov_resume_freq: %u\n", value);
-	}
-	
-	//GPU Control
-	if  (!call_in_progress || Ldisable_som_call_in_progress == 0)
-	{
-		if (Lscreen_off_GPU_mhz > 0)
-			set_max_gpuclk_so(0);
-	}
-}
-
-static void cpufreq_gov_suspend(void)
-{
-	struct cpufreq_policy *policy = NULL;
-	unsigned int ret = -EINVAL;
-	unsigned int value;
-	unsigned int mhz_lvl;
-
-	if (!cpu_is_offline(0) && scaling_governor_screen_off_sel != NULL && scaling_governor_screen_off_sel[0] != '\0')
-	{
-		policy = cpufreq_cpu_get(0);
-		ret = sscanf(policy->governor->name, "%15s", scaling_governor_screen_off_sel_prev);
-		if (ret == 1)
-		{
-			store_scaling_governor(policy, scaling_governor_screen_off_sel, sizeof(scaling_governor_screen_off_sel));
-			pr_alert("cpufreq_gov_suspend_gov: %s\n", scaling_governor_screen_off_sel);
-		}
-		else
-			pr_alert("cpufreq_gov_suspend_gov_DENIED1: %s\n", scaling_governor_screen_off_sel);
-	}
-	else
-		pr_alert("cpufreq_gov_suspend_gov_DENIED2: %s\n", scaling_governor_screen_off_sel);
-
-	if (!cpu_is_offline(0) && scaling_sched_screen_off_sel != NULL && scaling_sched_screen_off_sel[0] != '\0')
-	{
-		elevator_change_relay(scaling_sched_screen_off_sel, 1);
-		pr_alert("cpufreq_gov_suspend_gov_SCHED: %s\n", scaling_sched_screen_off_sel);
-	}
-	else
-		pr_alert("cpufreq_gov_suspend_gov_SCHED_DENIED2: %s\n", scaling_sched_screen_off_sel);
-
-	if (Lscreen_off_scaling_enable == 1 && (!call_in_progress || Ldisable_som_call_in_progress == 0))
-	{
-		if ((bluetooth_scaling_mhz_active == true && Lscreen_off_scaling_mhz > Lbluetooth_scaling_mhz) || (bluetooth_scaling_mhz_active == false))
-		{
-			if (vfreq_lock == 1)
-			{
-				vfreq_lock = 0;
-				vfreq_lock_tempOFF = true;
-			}
-			value = Lscreen_off_scaling_mhz;
-			mhz_lvl = get_batt_level();
-			if (mhz_lvl > 0)
-				value = mhz_lvl;
-			cpufreq_set_limit_defered(USER_MAX_START, value);
-			pr_alert("cpufreq_gov_suspend_freq: %u\n", value);
-		}
-	}
-	//GPU Control
-	if (Lscreen_off_GPU_mhz > 0 && (!call_in_progress || Ldisable_som_call_in_progress == 0))
-		set_max_gpuclk_so(Lscreen_off_GPU_mhz);
-}
-
-void set_screen_on_off_mhz(bool onoff)
-{
-	Lonoff = onoff;
-	if (Lonoff == 1)
-		cpufreq_gov_resume();
-	else
-		cpufreq_gov_suspend();
-}
 
 void set_cur_sched(const char *name)
 {
